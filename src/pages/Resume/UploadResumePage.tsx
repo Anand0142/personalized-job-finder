@@ -4,13 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useResume } from '@/contexts/ResumeContext';
 import { useToast } from '@/components/ui/use-toast';
-import { FileUp, CheckCircle } from 'lucide-react';
+import { FileUp, CheckCircle, Trash2 } from 'lucide-react';
 
 export default function UploadResumePage() {
   const [isDragging, setIsDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { uploadResume, isUploading, resume } = useResume();
+  const { resume, isUploading, uploadResume, deleteResume } = useResume();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -71,11 +71,31 @@ export default function UploadResumePage() {
         title: "Resume uploaded",
         description: "Your resume has been stored successfully",
       });
-      navigate('/dashboard');
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error) {
+      console.error("Upload error details:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       toast({
         title: "Upload failed",
-        description: "Failed to store resume",
+        description: `Failed to store resume: ${errorMessage}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteResume();
+      toast({
+        title: "Resume deleted",
+        description: "Your resume has been removed",
+      });
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast({
+        title: "Deletion failed",
+        description: "Could not delete your resume",
         variant: "destructive",
       });
     }
@@ -105,12 +125,22 @@ export default function UploadResumePage() {
               <p className="text-sm text-gray-500 mb-6">
                 Your resume: <strong>{resume.fileName}</strong> is stored
               </p>
-              <Button 
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Replace Resume
-              </Button>
+              <div className="flex gap-4 justify-center">
+                <Button 
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Replace Resume
+                </Button>
+                <Button 
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={isUploading}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete Resume
+                </Button>
+              </div>
             </div>
           ) : (
             <div

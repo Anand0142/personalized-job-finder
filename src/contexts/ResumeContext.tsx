@@ -7,15 +7,14 @@ interface ResumeContextType {
   resume: Resume | null;
   isUploading: boolean;
   uploadResume: (file: File) => Promise<void>;
-  applications: Application[]; 
+  deleteResume: () => Promise<void>;
 }
 
 const ResumeContext = createContext<ResumeContextType | undefined>(undefined);
 
 export const ResumeProvider = ({ children }: { children: React.ReactNode }) => {
   const [resume, setResume] = useState<Resume | null>(null);
-  const [isUploading, setIsUploading] = useState<boolean>(false);
-  const [applications, setApplications] = useState<Application[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -34,7 +33,7 @@ export const ResumeProvider = ({ children }: { children: React.ReactNode }) => {
         setResume({
           id: data.id,
           fileName: data.file_name,
-          fileUrl: data.file_path,
+          fileUrl: data.public_url, // Use stored public_url
           fileType: data.file_type,
           uploadDate: data.upload_date
         });
@@ -45,33 +44,52 @@ export const ResumeProvider = ({ children }: { children: React.ReactNode }) => {
   }, [user]);
 
   const uploadResume = async (file: File) => {
-    if (!user?.id) throw new Error('User not logged in');
+    if (!user?.id) throw new Error('User not authenticated');
     
     setIsUploading(true);
     
     try {
-      const fileExt = file.name.split('.').pop()?.toLowerCase() || '';
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `resumes/${fileName}`;
+      // Validate file
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      if (!fileExt || !['pdf', 'docx'].includes(fileExt)) {
+        throw new Error('Only PDF and DOCX files are allowed');
+      }
 
-      // Upload to Supabase Storage
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('File size exceeds 5MB limit');
+      }
+
+      // Create organized file path
+      const filePath = `users/${user.id}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+
+      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('resumes')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          contentType: file.type,
+          upsert: false
+        });
 
       if (uploadError) throw uploadError;
 
-      // Insert metadata into resumes table
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('resumes')
+        .getPublicUrl(filePath);
+
+      // Insert metadata with all required fields
       const { data, error } = await supabase
         .from('resumes')
-        .insert([{
+        .insert({
           user_id: user.id,
           file_name: file.name,
           file_path: filePath,
           file_type: fileExt,
-          file_size: file.size
-        }])
-        .select()
+          file_size: file.size,
+          public_url: publicUrl // Include public_url
+        })
+        .select('*') // Important: select all columns
         .single();
 
       if (error) throw error;
@@ -79,7 +97,7 @@ export const ResumeProvider = ({ children }: { children: React.ReactNode }) => {
       setResume({
         id: data.id,
         fileName: data.file_name,
-        fileUrl: data.file_path,
+        fileUrl: data.public_url,
         fileType: data.file_type,
         uploadDate: data.upload_date
       });
@@ -92,8 +110,37 @@ export const ResumeProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const deleteResume = async () => {
+    if (!resume || !user?.id) return;
+    
+    try {
+      // Extract file path from URL
+      const filePath = resume.fileUrl.split('/resumes/')[1];
+      
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('resumes')
+        .remove([filePath]);
+
+      if (storageError) throw storageError;
+
+      // Delete from database
+      const { error } = await supabase
+        .from('resumes')
+        .delete()
+        .eq('id', resume.id);
+
+      if (error) throw error;
+
+      setResume(null);
+    } catch (error) {
+      console.error('Resume deletion failed:', error);
+      throw error;
+    }
+  };
+
   return (
-    <ResumeContext.Provider value={{ resume, isUploading, uploadResume,applications  }}>
+    <ResumeContext.Provider value={{ resume, isUploading, uploadResume, deleteResume }}>
       {children}
     </ResumeContext.Provider>
   );
