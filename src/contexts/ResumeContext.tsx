@@ -1,5 +1,6 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Resume } from '@/types';
+import { Resume, Job, Application } from '@/types';
 import { useAuth } from './AuthContext';
 import { supabase } from '@/lib/supabase';
 
@@ -8,6 +9,8 @@ interface ResumeContextType {
   isUploading: boolean;
   uploadResume: (file: File) => Promise<void>;
   deleteResume: () => Promise<void>;
+  recommendedJobs: Job[];
+  applications: Application[];
 }
 
 const ResumeContext = createContext<ResumeContextType | undefined>(undefined);
@@ -15,6 +18,8 @@ const ResumeContext = createContext<ResumeContextType | undefined>(undefined);
 export const ResumeProvider = ({ children }: { children: React.ReactNode }) => {
   const [resume, setResume] = useState<Resume | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -41,6 +46,116 @@ export const ResumeProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     fetchUserResume();
+    
+    // Load sample recommended jobs
+    setRecommendedJobs([
+      {
+        id: '1',
+        title: 'Frontend Developer',
+        company: 'TechCorp',
+        location: 'San Francisco, CA',
+        description: 'Looking for an experienced frontend developer with React skills',
+        requirements: ['3+ years React experience', 'TypeScript knowledge', 'CSS expertise'],
+        skills: ['React', 'TypeScript', 'Tailwind CSS'],
+        salary: '$120,000 - $150,000',
+        postedDate: '2025-04-15',
+        deadline: '2025-05-15'
+      },
+      {
+        id: '2',
+        title: 'UI/UX Designer',
+        company: 'DesignHub',
+        location: 'Remote',
+        description: 'Create beautiful user interfaces for our web applications',
+        requirements: ['Portfolio showing UI design', 'Experience with Figma', 'User testing knowledge'],
+        skills: ['Figma', 'UI Design', 'Prototyping'],
+        salary: '$90,000 - $120,000',
+        postedDate: '2025-04-18',
+        deadline: '2025-05-20'
+      },
+      {
+        id: '3',
+        title: 'Full-Stack Developer',
+        company: 'GrowthStartup',
+        location: 'New York, NY',
+        description: 'Join our team to build scalable web applications',
+        requirements: ['Node.js experience', 'React knowledge', 'Database design'],
+        skills: ['Node.js', 'React', 'PostgreSQL'],
+        salary: '$130,000 - $160,000',
+        postedDate: '2025-04-20',
+        deadline: '2025-05-25'
+      },
+      {
+        id: '4',
+        title: 'DevOps Engineer',
+        company: 'CloudSystems',
+        location: 'Austin, TX',
+        description: 'Help us improve our deployment and infrastructure processes',
+        requirements: ['AWS experience', 'CI/CD pipeline setup', 'Infrastructure as code'],
+        skills: ['AWS', 'Docker', 'Kubernetes'],
+        salary: '$140,000 - $170,000',
+        postedDate: '2025-04-22',
+        deadline: '2025-05-30'
+      }
+    ]);
+    
+    // Load sample applications
+    setApplications([
+      {
+        id: '1',
+        jobId: '1',
+        userId: user?.id || 'user123',
+        status: 'Submitted Successfully',
+        submissionDate: '2025-04-25',
+        resume: {
+          id: 'res1',
+          fileName: 'john_doe_resume.pdf',
+          fileUrl: 'https://example.com/resume.pdf',
+          fileType: 'pdf',
+          uploadDate: '2025-04-20'
+        },
+        job: {
+          title: 'Frontend Developer',
+          company: 'TechCorp'
+        }
+      },
+      {
+        id: '2',
+        jobId: '2',
+        userId: user?.id || 'user123',
+        status: 'Processing',
+        submissionDate: '2025-04-26',
+        resume: {
+          id: 'res1',
+          fileName: 'john_doe_resume.pdf',
+          fileUrl: 'https://example.com/resume.pdf',
+          fileType: 'pdf',
+          uploadDate: '2025-04-20'
+        },
+        job: {
+          title: 'UI/UX Designer',
+          company: 'DesignHub'
+        }
+      },
+      {
+        id: '3',
+        jobId: '3',
+        userId: user?.id || 'user123',
+        status: 'Submission Failed',
+        submissionDate: '2025-04-27',
+        resume: {
+          id: 'res1',
+          fileName: 'john_doe_resume.pdf',
+          fileUrl: 'https://example.com/resume.pdf',
+          fileType: 'pdf',
+          uploadDate: '2025-04-20'
+        },
+        job: {
+          title: 'Full-Stack Developer',
+          company: 'GrowthStartup'
+        }
+      }
+    ]);
   }, [user]);
 
   const uploadResume = async (file: File) => {
@@ -140,7 +255,14 @@ export const ResumeProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <ResumeContext.Provider value={{ resume, isUploading, uploadResume, deleteResume }}>
+    <ResumeContext.Provider value={{ 
+      resume, 
+      isUploading, 
+      uploadResume, 
+      deleteResume, 
+      recommendedJobs,
+      applications 
+    }}>
       {children}
     </ResumeContext.Provider>
   );
